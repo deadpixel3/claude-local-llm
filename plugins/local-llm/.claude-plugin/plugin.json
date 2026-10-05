@@ -1,0 +1,38 @@
+{
+  "name": "local-llm",
+  "displayName": "Local LLM",
+  "version": "0.1.0",
+  "description": "Delegate routine coding work to a local OpenAI-compatible model and see its live stats (time, tokens, speed, context) above the prompt",
+  "author": { "name": "deadpixel3" },
+  "repository": "https://github.com/deadpixel3/claude-local-llm",
+  "license": "MIT",
+  "keywords": ["local-llm", "lm-studio", "ollama", "llama.cpp", "vllm", "mod"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "base_url": {
+      "type": "string",
+      "title": "Server URL",
+      "description": "OpenAI-compatible base URL, such as http://localhost:1234/v1. Leave empty to find LM Studio, Ollama, llama.cpp, vLLM or Jan on their usual ports.",
+      "default": ""
+    },
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "Model id as the server lists it. Leave empty to use the first chat model the server lists.",
+      "default": ""
+    },
+    "context_length": {
+      "type": "number",
+      "title": "Context length",
+      "description": "Tokens of context the model is loaded with, for the % shown. 0 asks the server (LM Studio, llama.cpp, vLLM and Ollama report it).",
+      "default": 0,
+      "min": 0
+    },
+    "show_stats": {
+      "type": "boolean",
+      "title": "Live stats above the prompt",
+      "description": "Show the model's progress, tokens, speed and context use above the prompt while it works.",
+      "default": true
+    }
+  }
+}

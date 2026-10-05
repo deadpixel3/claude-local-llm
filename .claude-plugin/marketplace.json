@@ -1,0 +1,12 @@
+{
+  "name": "claude-local-llm",
+  "description": "Hand routine coding work from Claude Code to a local LLM, with live stats above the prompt",
+  "owner": { "name": "deadpixel3" },
+  "plugins": [
+    {
+      "name": "local-llm",
+      "source": "./plugins/local-llm",
+      "description": "Delegate boilerplate, tests and simple functions to a local model (LM Studio, Ollama, llama.cpp, vLLM, Jan) and watch it work live above the prompt"
+    }
+  ]
+}
