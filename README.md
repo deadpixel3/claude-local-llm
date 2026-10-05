@@ -134,6 +134,10 @@ cd plugins/local-llm && claude plugin test .
 claude --plugin-dir ./plugins/local-llm
 ```
 
+## Privacy
+
+Nothing is collected. Prompts go only to the server you choose, and live stats stay in a file on your machine. See [PRIVACY.md](PRIVACY.md).
+
 ## License
 
 MIT

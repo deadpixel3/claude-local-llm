@@ -3,10 +3,23 @@
   "displayName": "Local LLM",
   "version": "0.1.0",
   "description": "Delegate routine coding work to a local OpenAI-compatible model and see its live stats (time, tokens, speed, context) above the prompt",
-  "author": { "name": "deadpixel3" },
+  "author": {
+    "name": "deadpixel3"
+  },
   "repository": "https://github.com/deadpixel3/claude-local-llm",
+  "homepage": "https://github.com/deadpixel3/claude-local-llm",
+  "documentationUrl": "https://github.com/deadpixel3/claude-local-llm#readme",
+  "supportUrl": "https://github.com/deadpixel3/claude-local-llm/issues",
+  "privacyPolicyUrl": "https://github.com/deadpixel3/claude-local-llm/blob/main/PRIVACY.md",
   "license": "MIT",
-  "keywords": ["local-llm", "lm-studio", "ollama", "llama.cpp", "vllm", "mod"],
+  "keywords": [
+    "local-llm",
+    "lm-studio",
+    "ollama",
+    "llama.cpp",
+    "vllm",
+    "mod"
+  ],
   "types": "./types/index.d.ts",
   "userConfig": {
     "base_url": {
