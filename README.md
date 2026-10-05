@@ -75,7 +75,7 @@ All optional. Change them in `/config` under **Local LLM**:
 | Context length | `0`: ask the server | Tokens of context the model is loaded with, for the % shown |
 | Live stats above the prompt | on | Turn the live line off |
 
-`LOCAL_LLM_URL`, `LOCAL_LLM_MODEL` and `LOCAL_LLM_CONTEXT` environment variables work as fallbacks too. The plugin sends no API key: it is made for servers on your own machine or network, which run without one.
+The plugin sends no API key and reads no environment variables: it is made for servers on your own machine or network, which run without a key.
 
 ### Thinking models
 

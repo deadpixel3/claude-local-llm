@@ -12,8 +12,8 @@ The reply goes to stdout. A one-line stats summary goes to stderr. With --live,
 progress is written to a small JSON file while the reply streams in, which the
 plugin's mod draws above the Claude Code prompt.
 
-Empty option values count as unset. Fallbacks: LOCAL_LLM_URL, LOCAL_LLM_MODEL and
-LOCAL_LLM_CONTEXT, then auto-detection. It sends the prompt only to that server.
+Empty option values count as unset: the server and model are then auto-detected.
+It sends the prompt only to that server.
 """
 
 import argparse
@@ -187,9 +187,9 @@ def main():
     p.add_argument("--status", action="store_true", help="show the server, model and context, then exit")
     args = p.parse_args()
 
-    args.url = args.url.strip() or os.environ.get("LOCAL_LLM_URL", "")
-    args.model = args.model.strip() or os.environ.get("LOCAL_LLM_MODEL", "")
-    context = (args.context.strip() or os.environ.get("LOCAL_LLM_CONTEXT", "")).strip()
+    args.url = args.url.strip()
+    args.model = args.model.strip()
+    context = args.context.strip()
     args.context = int(context) if context.isdigit() and int(context) > 0 else None
 
     if args.status:
