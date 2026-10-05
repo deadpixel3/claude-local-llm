@@ -42,31 +42,29 @@ def server_name(url):
     return re.sub(r"^https?://", "", url).split("/")[0]
 
 
-def request(url, body=None, timeout=5.0, api_key=None):
+def request(url, body=None, timeout=5.0):
     headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
     data = json.dumps(body).encode() if body is not None else None
     return urllib.request.urlopen(urllib.request.Request(url, data, headers), timeout=timeout)
 
 
-def get_json(url, timeout=2.0, api_key=None, body=None):
-    with request(url, body, timeout, api_key) as r:
+def get_json(url, timeout=2.0, body=None):
+    with request(url, body, timeout) as r:
         return json.load(r)
 
 
-def list_models(base, api_key):
-    data = get_json(base + "/models", api_key=api_key)
+def list_models(base):
+    data = get_json(base + "/models")
     return [m["id"] for m in data.get("data", []) if isinstance(m, dict) and "id" in m]
 
 
-def find_server(url, api_key):
+def find_server(url):
     """Return (base_url, models). Probes the usual local ports when no URL is set."""
     candidates = [url.rstrip("/")] if url else [known for _, known in KNOWN_SERVERS]
     errors = []
     for base in candidates:
         try:
-            return base, list_models(base, api_key)
+            return base, list_models(base)
         except Exception as e:
             errors.append(f"{base} ({e.__class__.__name__})")
     if url:
@@ -87,18 +85,18 @@ def pick_model(model, models):
     return chat[0]
 
 
-def detect_context(base, model, api_key):
+def detect_context(base, model):
     """Best-effort loaded context size; None when the server doesn't say."""
     root = base[:-3] if base.endswith("/v1") else base
     probes = [
         # vLLM lists it with the model
-        lambda: next(m.get("max_model_len") for m in get_json(f"{base}/models", api_key=api_key)["data"] if m.get("id") == model),
+        lambda: next(m.get("max_model_len") for m in get_json(f"{base}/models")["data"] if m.get("id") == model),
         # LM Studio
-        lambda: get_json(f"{root}/api/v0/models/{model}", api_key=api_key).get("loaded_context_length"),
+        lambda: get_json(f"{root}/api/v0/models/{model}").get("loaded_context_length"),
         # llama.cpp
-        lambda: get_json(f"{root}/props", api_key=api_key)["default_generation_settings"]["n_ctx"],
+        lambda: get_json(f"{root}/props")["default_generation_settings"]["n_ctx"],
         # Ollama: the context of the loaded model
-        lambda: next(m.get("context_length") for m in get_json(f"{root}/api/ps", api_key=api_key)["models"]
+        lambda: next(m.get("context_length") for m in get_json(f"{root}/api/ps")["models"]
                      if m.get("name") == model or m.get("model") == model),
     ]
     for probe in probes:
@@ -136,16 +134,16 @@ class Live:
             pass
 
 
-def stream_chat(base, body, api_key, on_delta):
+def stream_chat(base, body, on_delta):
     """POST a streaming chat request; retry once without optional fields a strict server rejects."""
     optional = ("reasoning_effort", "chat_template_kwargs", "think", "stream_options")
     try:
-        r = request(base + "/chat/completions", body, timeout=1800, api_key=api_key)
+        r = request(base + "/chat/completions", body, timeout=1800)
     except urllib.error.HTTPError as e:
         if e.code != 400 or not any(k in body for k in optional):
             raise
         body = {k: v for k, v in body.items() if k not in optional}
-        r = request(base + "/chat/completions", body, timeout=1800, api_key=api_key)
+        r = request(base + "/chat/completions", body, timeout=1800)
     usage = stats = None
     with r:
         for raw in r:
@@ -163,10 +161,10 @@ def stream_chat(base, body, api_key, on_delta):
     return usage or {}, stats or {}
 
 
-def status(args, api_key):
-    base, models = find_server(args.url, api_key)
+def status(args):
+    base, models = find_server(args.url)
     model = pick_model(args.model, models)
-    ctx = args.context or detect_context(base, model, api_key)
+    ctx = args.context or detect_context(base, model)
     print(f"server   {server_name(base)} at {base}")
     print(f"model    {model}" + ("" if args.model else "  (first chat model the server lists)"))
     print(f"context  {ctx if ctx else 'not reported by the server'}")
@@ -193,23 +191,25 @@ def main():
     args.model = args.model.strip() or os.environ.get("LOCAL_LLM_MODEL", "")
     context = (args.context.strip() or os.environ.get("LOCAL_LLM_CONTEXT", "")).strip()
     args.context = int(context) if context.isdigit() and int(context) > 0 else None
-    api_key = None  # local servers run without a key
 
     if args.status:
-        return status(args, api_key)
+        return status(args)
     if not args.prompt_file:
         p.error("a prompt file is required (or --status)")
 
-    with (sys.stdin if args.prompt_file == "-" else open(args.prompt_file, encoding="utf-8")) as f:
-        prompt = f.read()
-    messages = [{"role": "user", "content": prompt}]
-    if args.system:
-        with open(args.system, encoding="utf-8") as f:
-            messages.insert(0, {"role": "system", "content": f.read()})
+    try:
+        with (sys.stdin if args.prompt_file == "-" else open(args.prompt_file, encoding="utf-8")) as f:
+            prompt = f.read()
+        messages = [{"role": "user", "content": prompt}]
+        if args.system:
+            with open(args.system, encoding="utf-8") as f:
+                messages.insert(0, {"role": "system", "content": f.read()})
+    except OSError as e:
+        raise SystemExit(f"local-llm: can't read {e.filename}: {e.strerror}")
 
-    base, models = find_server(args.url, api_key)
+    base, models = find_server(args.url)
     model = pick_model(args.model, models)
-    ctx = args.context or detect_context(base, model, api_key)
+    ctx = args.context or detect_context(base, model)
 
     start = time.time()
     live = Live(args.live, {
@@ -258,7 +258,7 @@ def main():
                    ttft=round(state["first"] - start, 2), tps=round(state["chunks"] / gen, 1) if gen > 0.2 else 0.0)
 
     try:
-        usage, stats = stream_chat(base, body, api_key, on_delta)
+        usage, stats = stream_chat(base, body, on_delta)
     except Exception as e:
         reason = f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:200]}" if isinstance(e, urllib.error.HTTPError) else str(e)
         live.write(force=True, state="error", phase="error", error=reason)
