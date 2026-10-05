@@ -13,13 +13,6 @@ const LIVE_PATH = /--live[ =](?:"([^"]+)"|'([^']+)'|(\S+))/
 const SPINNER = ['·', '✢', '✳', '✶', '✻', '✽', '✻', '✶', '✳', '✢']
 const PHASE = { prompt: 'reading prompt', thinking: 'thinking', writing: 'writing', done: 'done', error: 'failed' }
 const STALE_MS = 5 * 60 * 1000
-const KNOWN_SERVERS = [
-  'http://localhost:1234/v1',
-  'http://localhost:11434/v1',
-  'http://localhost:8080/v1',
-  'http://localhost:8000/v1',
-  'http://localhost:1337/v1',
-]
 
 const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`)
 const fmtCtx = (n: number) => (n >= 1024 ? `${Math.round(n / 1024)}K` : `${n}`)
@@ -44,48 +37,31 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'local-llm',
-      description: 'Show the local LLM server, its models, and the last run',
+      description: 'Show the local LLM settings and the last run',
     })
 
     return next(e)
   })
 
   on('command.run', { command: 'local-llm' }, async $ => {
-    const configured = typeof options.base_url === 'string' ? options.base_url.trim().replace(/\/$/, '') : ''
-    const lines: string[] = []
-    let found: { url: string; models: string[] } | null = null
-    for (const url of configured ? [configured] : KNOWN_SERVERS) {
-      try {
-        const res = await $.http.fetch(`${url}/models`)
-        if (res.ok) {
-          const ids = (JSON.parse(res.text).data ?? []).map((m: { id: string }) => m.id)
-          found = { url, models: ids }
-          break
-        }
-      } catch {
-        // not listening here
-      }
-    }
-    if (found) {
-      lines.push(`Server: ${found.url}`, `Models: ${found.models.join(', ') || 'none loaded'}`)
-    } else {
-      lines.push(
-        configured
-          ? `No server answered at ${configured}.`
-          : 'No local server found on the usual ports (LM Studio 1234, Ollama 11434, llama.cpp 8080, vLLM 8000, Jan 1337).',
-      )
-    }
-    if (typeof options.model === 'string' && options.model) {
-      lines.push(`Configured model: ${options.model}`)
-    }
+    const setting = (key: string, fallback: string) =>
+      typeof options[key] === 'string' && options[key] !== '' ? String(options[key]) : fallback
+    const lines = [
+      `Server: ${setting('base_url', 'auto-detect (LM Studio, Ollama, llama.cpp, vLLM, Jan on their usual ports)')}`,
+      `Model: ${setting('model', "the first chat model the server lists")}`,
+      `Context: ${Number(options.context_length) > 0 ? options.context_length : 'reported by the server'}`,
+      `Live stats: ${showStats ? 'on' : 'off'}`,
+    ]
     const last = await read($, run)
     if (last) {
       const ctx = last.ctx ? `, ${((100 * (last.promptTokens + last.outputTokens)) / last.ctx).toFixed(1)}% of ${fmtCtx(last.ctx)} context` : ''
       lines.push(
         last.state === 'error'
-          ? `Last run: failed (${last.error ?? 'unknown error'})`
-          : `Last run: ${last.model}, ${fmtTime(last.elapsed)}, ${last.promptTokens} in / ${last.outputTokens} out, ${Math.round(last.tps)} tok/s${ctx}`,
+          ? `Last run: ${last.model} on ${last.url} failed (${last.error ?? 'unknown error'})`
+          : `Last run: ${last.model} on ${last.server}, ${fmtTime(last.elapsed)}, ${last.promptTokens} in / ${last.outputTokens} out, ${Math.round(last.tps)} tok/s${ctx}`,
       )
+    } else {
+      lines.push('No run yet in this session. To check the server, ask Claude to run the local model with --status.')
     }
 
     return { text: lines.join('\n') }

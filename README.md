@@ -60,7 +60,7 @@ Ask in plain words:
 
 > use local llm: add docstrings to every function in utils.py
 
-Claude also reaches for it by itself for clearly routine generation. To see what it will talk to, run `/local-llm`, which shows the server it finds, the loaded models and the last run.
+Claude also reaches for it by itself for clearly routine generation. Run `/local-llm` to see your settings and the last run's numbers, or ask Claude to check the local model, which runs the script's `--status`: the server it found, the model and the context size.
 
 What Claude keeps for itself: planning, architecture, changes across many files, hard bugs, and anything touching security, auth or payments. Local models make confident mistakes, so Claude reviews and tests everything they write, and takes over a task the model fails twice.
 
@@ -75,7 +75,7 @@ All optional. Change them in `/config` under **Local LLM**:
 | Context length | `0`: ask the server | Tokens of context the model is loaded with, for the % shown |
 | Live stats above the prompt | on | Turn the live line off |
 
-A server that needs a key reads it from the `LOCAL_LLM_API_KEY` environment variable, so it never sits in a prompt or settings file. `LOCAL_LLM_URL`, `LOCAL_LLM_MODEL` and `LOCAL_LLM_CONTEXT` work as fallbacks too.
+`LOCAL_LLM_URL`, `LOCAL_LLM_MODEL` and `LOCAL_LLM_CONTEXT` environment variables work as fallbacks too. The plugin sends no API key: it is made for servers on your own machine or network, which run without one.
 
 ### Thinking models
 
@@ -93,7 +93,7 @@ claude-local-llm/                  the marketplace
 
 1. The skill has Claude write a prompt file and run `scripts/llm.py` with your settings and a `--live` file in the plugin's data folder.
 2. `llm.py` finds the server, streams the reply, and rewrites the live file a few times a second: phase, tokens, speed, context.
-3. The mod sees the Bash call, reads the `--live` path from it, polls that file while the call runs, and draws the line. Each value has a fixed-width slot, so the line holds still while numbers change.
+3. The mod notices the Bash call, takes the `--live` path from it, reads that file a few times a second until the run ends, and draws the line. Each value has a fixed-width slot, so the line holds still while numbers change.
 
 `llm.py` is standard-library Python and runs on its own:
 
@@ -104,13 +104,20 @@ python3 plugins/local-llm/scripts/llm.py prompt.txt --model llama3.1 --live /tmp
 
 ## What the plugin can access
 
-A mod runs inside Claude Code with your permissions, so check what this one does before you install it:
+A mod runs inside Claude Code with your permissions, so here is everything this one does. `claude plugin validate ./plugins/local-llm` lists the same hooks and calls.
 
-```bash
-claude plugin validate ./plugins/local-llm
-```
+**The mod** (`hooks/register.tsx`) makes no network requests, runs no commands, tools or models, and reads no credentials. It hooks four events:
 
-It handles four events (session start, its `/local-llm` command, Bash tool calls, and drawing the line above the prompt) and makes four kinds of calls: it reads the live stats file, fetches `<server>/models` for `/local-llm`, registers that command, and keeps a timer while a run is in progress. It never blocks or changes a tool call. The script talks only to the server URL you set or to `localhost`.
+| Event | What it does |
+| --- | --- |
+| `session.start` | Registers the `/local-llm` command. |
+| `command.run` for `/local-llm` | Replies with your Local LLM settings and the last run's numbers, from the mod's own state. |
+| `tool.call` for Bash | Looks at the command text of each Bash call Claude makes. Only for a call of this plugin's `llm.py` with `--live PATH` does it act: it reads that one file a few times a second until the run finishes. It never blocks, changes, delays or answers a tool call: every call, this plugin's included, goes on exactly as Claude made it. |
+| `ui.render` for the line above the prompt | Draws the live line from that file's numbers. |
+
+Its calls: `$.fs.read` (the `--live` file only), `$.clock` (the read timer), `$.command.register`, `$.state` (the numbers it draws) and `$.ui.resolve` (drawing).
+
+**The script** (`scripts/llm.py`), which Claude runs through Bash like any command, so it goes through your normal permission prompts: it sends the prompt Claude wrote to one server, the URL you set or the first that answers on `localhost` ports 1234, 11434, 8080, 8000 and 1337, and writes the live stats file in the plugin's data folder. It contacts no other host, and sends no key or other credential.
 
 ## Troubleshooting
 

@@ -12,8 +12,8 @@ The reply goes to stdout. A one-line stats summary goes to stderr. With --live,
 progress is written to a small JSON file while the reply streams in, which the
 plugin's mod draws above the Claude Code prompt.
 
-Empty option values count as unset. Fallbacks: LOCAL_LLM_URL, LOCAL_LLM_MODEL,
-LOCAL_LLM_CONTEXT and LOCAL_LLM_API_KEY, then auto-detection.
+Empty option values count as unset. Fallbacks: LOCAL_LLM_URL, LOCAL_LLM_MODEL and
+LOCAL_LLM_CONTEXT, then auto-detection. It sends the prompt only to that server.
 """
 
 import argparse
@@ -193,7 +193,7 @@ def main():
     args.model = args.model.strip() or os.environ.get("LOCAL_LLM_MODEL", "")
     context = (args.context.strip() or os.environ.get("LOCAL_LLM_CONTEXT", "")).strip()
     args.context = int(context) if context.isdigit() and int(context) > 0 else None
-    api_key = os.environ.get("LOCAL_LLM_API_KEY") or None
+    api_key = None  # local servers run without a key
 
     if args.status:
         return status(args, api_key)

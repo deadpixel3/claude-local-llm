@@ -91,13 +91,18 @@ test('other Bash calls and calls without --live are left alone', async ($, on) =
   expect(await ui.find({ type: 'Text', text: 'engine' })).toBeDefined()
 })
 
-test('/local-llm reports the server it finds and its models', async ($, on) => {
-  on('http.fetch', ($, e) =>
-    e.url === 'http://localhost:11434/v1/models'
-      ? { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ data: [{ id: 'llama3.1:latest' }] }) } }
-      : { value: { status: 0, ok: false, headers: {}, text: '' } },
-  )
-  const answer = await $.command.run({ command: 'local-llm', args: '' })
-  expect(answer.text).toContain('Server: http://localhost:11434/v1')
-  expect(answer.text).toContain('llama3.1:latest')
+test('/local-llm reports the settings and the last run', async ($, on) => {
+  const clock = mock.clock(on)
+  const file = { ...base, state: 'done', phase: 'done', startedAt: clock.now(), outputTokens: 965, tps: 61.2, elapsed: 16.2 }
+  on('fs.read', () => ({ value: JSON.stringify(file) }))
+  on('tool.call', () => ({ result: { text: 'ok' } }))
+
+  const before = await $.command.run({ command: 'local-llm', args: '' })
+  expect(before.text).toContain('Server: auto-detect')
+  expect(before.text).toContain('No run yet')
+
+  await $.tool.call({ tool: 'Bash', command: CALL })
+  await clock.advance(300)
+  const after = await $.command.run({ command: 'local-llm', args: '' })
+  expect(after.text).toContain('Last run: lmstudio-community/Qwen3-8B-GGUF on LM Studio, 16.2s, 186 in / 965 out, 61 tok/s')
 })
